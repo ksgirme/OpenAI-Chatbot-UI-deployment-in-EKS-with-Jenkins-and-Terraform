@@ -37,35 +37,8 @@ This project demonstrates a complete **DevSecOps pipeline** to deploy a **ChatGP
 
 ---
 
-## 📁 Project Structure
-graph TD
-    A[GitHub Repository] --> B[Jenkins Pipeline Start]
-    B --> C[Stage 2: Install Dependencies (npm)]
-    C --> D[Stage 3: SonarQube Analysis]
-    D --> E[Stage 4: OWASP Dependency Check]
-    E --> F[Stage 5: Trivy File Scan]
-    F --> G[Stage 6: Docker Build & Push]
-    G --> H[Stage 7: Trivy Image Scan]
-    H --> I[Stage 8: Deploy to Kubernetes (kubectl)]
-    I --> J[Stage 9: Provision Infrastructure (Terraform)]
-
-    subgraph DevSecOps Tools
-        B
-        D
-        E
-        F
-        G
-        H
-        I
-        J
-    end
 
 
-python
-Copy
-Edit
-
----
 
 ## ⚙️ Jenkinsfile
 
