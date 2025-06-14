@@ -1,126 +1,220 @@
-# Chatbot UI
+# 🤖 OpenAI Chatbot UI Deployment in EKS using Jenkins and Terraform
 
-Chatbot UI is an advanced chatbot kit for OpenAI's chat models built on top of [Chatbot UI Lite](https://github.com/mckaywrigley/chatbot-ui-lite) using Next.js, TypeScript, and Tailwind CSS.
+![Project Flow](.public/devops.jpg)
 
-See a [demo](https://twitter.com/mckaywrigley/status/1640380021423603713?s=46&t=AowqkodyK6B4JccSOxSPew).
+This project demonstrates a complete **DevSecOps pipeline** to deploy a **ChatGPT-powered Chatbot UI** on **Amazon EKS** using **Jenkins** for CI/CD and **Terraform** for infrastructure provisioning. The pipeline includes code quality checks, vulnerability scanning, Docker image handling, and secure container deployment.
 
-![Chatbot UI](./public/screenshot.png)
+---
 
-## Updates
+## 🔧 Tech Stack
 
-Chatbot UI will be updated over time.
+- **GitHub** – Source code management  
+- **Ubuntu EC2 (t2.large / 30GB)** – Jenkins host  
+- **Jenkins** – CI/CD Orchestration  
+- **Node.js & npm** – Application build  
+- **SonarQube** – Code quality analysis  
+- **OWASP Dependency Check** – Vulnerability scanning  
+- **Trivy** – File and Docker image scanning  
+- **Docker** – Containerization  
+- **Kubernetes (EKS)** – Deployment  
+- **Terraform** – Infrastructure provisioning  
 
-Expect frequent improvements.
+---
 
-**Next up:**
+## 📊 Pipeline Stages
 
-- [ ] Delete messages
-- [ ] More model settings
-- [ ] Plugins
+| Stage     | Description                      | Tool Used                 |
+|-----------|----------------------------------|---------------------------|
+| Stage 1   | Clone from GitHub                | GitHub                    |
+| Stage 2   | Install Dependencies             | npm                       |
+| Stage 3   | Code Quality Analysis            | SonarQube                 |
+| Stage 4   | Dependency Vulnerability Scan    | OWASP Dependency Check    |
+| Stage 5   | Trivy File Scan                  | Trivy                     |
+| Stage 6   | Docker Build and Push            | Docker                    |
+| Stage 7   | Trivy Image Scan                 | Trivy                     |
+| Stage 8   | Deploy to Kubernetes             | kubectl                   |
+| Stage 9   | Provision Infra (EKS)            | Terraform                 |
 
-**Recent updates:**
+---
 
-- [x] Prompt templates (3/27/23)
-- [x] Regenerate & edit responses (3/25/23)
-- [x] Folders (3/24/23)
-- [x] Search chat content (3/23/23)
-- [x] Stop message generation (3/22/23)
-- [x] Import/Export chats (3/22/23)
-- [x] Custom system prompt (3/21/23)
-- [x] Error handling (3/20/23)
-- [x] GPT-4 support (access required) (3/20/23)
-- [x] Search conversations (3/19/23)
-- [x] Code syntax highlighting (3/18/23)
-- [x] Toggle sidebar (3/18/23)
-- [x] Conversation naming (3/18/23)
-- [x] Github flavored markdown (3/18/23)
-- [x] Add OpenAI API key in app (3/18/23)
-- [x] Markdown support (3/17/23)
+## 📁 Project Structure
+.
+├── Jenkinsfile
+├── Dockerfile
+├── sonar-project.properties
+├── dependency-check.sh
+├── trivy-scan.sh
+├── terraform/
+│ ├── main.tf
+│ ├── variables.tf
+│ └── outputs.tf
+└── deployment/
+├── deployment.yaml
+├── service.yaml
+└── namespace.yaml
 
-## Modifications
+python
+Copy
+Edit
 
-Modify the chat interface in `components/Chat`.
+---
 
-Modify the sidebar interface in `components/Sidebar`.
+## ⚙️ Jenkinsfile
 
-Modify the system prompt in `utils/index.ts`.
+```groovy
+pipeline {
+    agent any
 
-## Deploy
+    environment {
+        IMAGE_NAME = "your-dockerhub-username/chatbot-ui"
+    }
 
-**Vercel**
+    stages {
+        stage('Clone Repository') {
+            steps {
+                git 'https://github.com/your-repo/chatbot-ui.git'
+            }
+        }
 
-Host your own live version of Chatbot UI with Vercel.
+        stage('Install Dependencies') {
+            steps {
+                sh 'npm install'
+            }
+        }
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fmckaywrigley%2Fchatbot-ui)
+        stage('Code Analysis - SonarQube') {
+            steps {
+                sh 'sonar-scanner'
+            }
+        }
 
-**Replit**
+        stage('Vulnerability Check - OWASP') {
+            steps {
+                sh './dependency-check.sh'
+            }
+        }
 
-Fork Chatbot UI on Replit [here](https://replit.com/@MckayWrigley/chatbot-ui-pro?v=1).
+        stage('File Scan - Trivy') {
+            steps {
+                sh './trivy-scan.sh .'
+            }
+        }
 
-**Docker**
+        stage('Docker Build & Push') {
+            steps {
+                sh '''
+                    docker build -t $IMAGE_NAME .
+                    docker push $IMAGE_NAME
+                '''
+            }
+        }
 
-Build locally:
+        stage('Trivy Image Scan') {
+            steps {
+                sh "trivy image $IMAGE_NAME"
+            }
+        }
 
-```shell
-docker build -t chatgpt-ui .
-docker run -e OPENAI_API_KEY=xxxxxxxx -p 3000:3000 chatgpt-ui
-```
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh '''
+                    kubectl apply -f deployment/namespace.yaml
+                    kubectl apply -f deployment/deployment.yaml
+                    kubectl apply -f deployment/service.yaml
+                '''
+            }
+        }
 
-Pull from ghcr:
+        stage('Provision Infrastructure - Terraform') {
+            steps {
+                dir('terraform') {
+                    sh '''
+                        terraform init
+                        terraform apply -auto-approve
+                    '''
+                }
+            }
+        }
+    }
+}
 
-```
-docker run -e OPENAI_API_KEY=xxxxxxxx -p 3000:3000 ghcr.io/mckaywrigley/chatbot-ui:main
-```
+````
+## 🐳 Dockerfile
+FROM node:18-alpine
 
-## Running Locally
+WORKDIR /app
 
-**1. Clone Repo**
+COPY . .
 
-```bash
-git clone https://github.com/mckaywrigley/chatbot-ui.git
-```
+RUN npm install
 
-**2. Install Dependencies**
+EXPOSE 3000
 
-```bash
-npm i
-```
+CMD ["npm", "start"]
 
-**3. Provide OpenAI API Key**
+## ⚙️ SonarQube Configuration
+sonar.projectKey=ChatbotUI
+sonar.projectName=Chatbot UI
+sonar.projectVersion=1.0
+sonar.sources=.
+sonar.sourceEncoding=UTF-8
 
-Create a .env.local file in the root of the repo with your OpenAI API Key:
+## 🔐 OWASP Dependency Check
+#!/bin/bash
+mkdir -p owasp
+dependency-check.sh --project "Chatbot UI" --scan . --out owasp/
 
-```bash
-OPENAI_API_KEY=YOUR_KEY
-```
+## 🔍 Trivy File Scan
+trivy-scan.sh
+#!/bin/bash
+trivy fs --exit-code 0 --severity HIGH,CRITICAL $1
 
-> You can set `OPENAI_API_HOST` where access to the official OpenAI host is restricted or unavailable, allowing users to configure an alternative host for their specific needs.
+## ☁️ Terraform Infrastructure Code
+terraform/main.tf
+provider "aws" {
+  region = "us-west-2"
+}
 
-> Additionally, if you have multiple OpenAI Organizations, you can set `OPENAI_ORGANIZATION` to specify one.
+resource "aws_eks_cluster" "chatbot_eks" {
+  name     = "chatbot-cluster"
+  role_arn = aws_iam_role.eks_cluster.arn
+  # ... additional configs
+}
 
-**4. Run App**
+## 📦 Kubernetes Deployment Files
+deployment/namespace.yaml
 
-```bash
-npm run dev
-```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chatbot-ui
+  namespace: chatbot
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: chatbot-ui
+  template:
+    metadata:
+      labels:
+        app: chatbot-ui
+    spec:
+      containers:
+      - name: chatbot-ui
+        image: your-dockerhub-username/chatbot-ui
+        ports:
+        - containerPort: 3000
 
-**5. Use It**
+## ✅ Prerequisites
+AWS CLI configured (aws configure)
 
-You should be able to start chatting.
+Docker installed and DockerHub access
 
-## Configuration
+Jenkins with required plugins (Git, Pipeline, Docker, SonarQube Scanner)
 
-When deploying the application, the following environment variables can be set:
+Trivy and OWASP CLI tools installed
 
-| Environment Variable  | Default value                  | Description                                             |
-| --------------------- | ------------------------------ | ------------------------------------------------------- |
-| OPENAI_API_KEY        |                                | The default API key used for authentication with OpenAI |
-| DEFAULT_MODEL         | `gpt-3.5-turbo`                | The default model to use on new conversations           |
-| DEFAULT_SYSTEM_PROMPT | [see here](utils/app/const.ts) | The defaut system prompt to use on new conversations    |
+kubectl configured for EKS
 
-If you do not provide an OpenAI API key with `OPENAI_API_KEY`, users will have to provide their own key.
-If you don't have an OpenAI API key, you can get one [here](https://platform.openai.com/account/api-keys).
+Terraform >= 1.3
 
-## Contact
-
-If you have any questions, feel free to reach out to me on [Twitter](https://twitter.com/mckaywrigley).
