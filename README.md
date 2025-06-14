@@ -43,76 +43,79 @@ This project demonstrates a complete **DevSecOps pipeline** to deploy a **ChatGP
 ## ⚙️ Jenkinsfile
 
 ```groovy
-pipeline {
+pipeline{
     agent any
-
-    environment {
-        IMAGE_NAME = "your-dockerhub-username/chatbot-ui"
+    tools{
+        jdk 'jdk17'
+        nodejs 'node19'
     }
-
+    environment {
+        SCANNER_HOME=tool 'sonar-scanner'
+    }
     stages {
-        stage('Clone Repository') {
-            steps {
-                git 'https://github.com/your-repo/chatbot-ui.git'
+        stage('Checkout from Git'){
+            steps{
+                git branch: 'legacy', url: 'https://github.com/vijaygiduthuri/chatbot-ui.git'
             }
         }
-
         stage('Install Dependencies') {
             steps {
-                sh 'npm install'
+                sh "npm install"
             }
         }
-
-        stage('Code Analysis - SonarQube') {
-            steps {
-                sh 'sonar-scanner'
+        stage("Sonarqube Analysis "){
+            steps{
+                withSonarQubeEnv('sonar-server') {
+                    sh ''' $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=chatbot \
+                    -Dsonar.projectKey=chatbot '''
+                }
             }
         }
-
-        stage('Vulnerability Check - OWASP') {
-            steps {
-                sh './dependency-check.sh'
+        stage("quality gate"){
+           steps {
+                script {
+                    waitForQualityGate abortPipeline: false, credentialsId: 'Sonar-token'
+                }
             }
         }
-
-        stage('File Scan - Trivy') {
+        stage('OWASP FS SCAN') {
             steps {
-                sh './trivy-scan.sh .'
+                dependencyCheck additionalArguments: '--scan ./ --disableYarnAudit --disableNodeAudit', odcInstallation: 'DP-Check'
+                dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
             }
         }
-
-        stage('Docker Build & Push') {
+        stage('TRIVY FS SCAN') {
             steps {
-                sh '''
-                    docker build -t $IMAGE_NAME .
-                    docker push $IMAGE_NAME
-                '''
+                sh "trivy fs . > trivyfs.json"
             }
         }
-
-        stage('Trivy Image Scan') {
-            steps {
-                sh "trivy image $IMAGE_NAME"
+        stage("Docker Build & Push"){
+            steps{
+                script{
+                   withDockerRegistry(credentialsId: 'docker', toolName: 'docker'){
+                       sh "docker build -t chatbot ."
+                       sh "docker tag chatbot vijaygiduthuri/chatbot:latest "
+                       sh "docker push vijaygiduthuri/chatbot:latest "
+                    }
+                }
             }
         }
-
-        stage('Deploy to Kubernetes') {
-            steps {
-                sh '''
-                    kubectl apply -f deployment/namespace.yaml
-                    kubectl apply -f deployment/deployment.yaml
-                    kubectl apply -f deployment/service.yaml
-                '''
+        stage("TRIVY"){
+            steps{
+                sh "trivy image vijaygiduthuri/chatbot:latest > trivy.json"
             }
         }
-
-        stage('Provision Infrastructure - Terraform') {
-            steps {
-                dir('terraform') {
-                    sh '''
-                        terraform init
-                        terraform apply -auto-approve
-                    '''
+        stage('Deploy to container'){
+            steps{
+                sh 'docker run -d --name chat -p 3000:3000 vijaygiduthuri/chatbot:latest'
+            }
+        }
+        stage('Deploy to kubernets'){
+            steps{
+                script{
+                    withKubeConfig(caCertificate: '', clusterName: '', contextName: '', credentialsId: 'k8s', namespace: '', restrictKubeConfigAccess: false, serverUrl: '') {
+                       sh 'kubectl apply -f k8s/chatbot-ui.yaml'
+                  }
                 }
             }
         }
