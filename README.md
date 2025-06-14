@@ -1,6 +1,6 @@
 # 🤖 OpenAI Chatbot UI Deployment in EKS using Jenkins and Terraform
 
-![Project Flow](.public/devops.jpg)
+![Project Flow](./public/devops.jpg)
 
 This project demonstrates a complete **DevSecOps pipeline** to deploy a **ChatGPT-powered Chatbot UI** on **Amazon EKS** using **Jenkins** for CI/CD and **Terraform** for infrastructure provisioning. The pipeline includes code quality checks, vulnerability scanning, Docker image handling, and secure container deployment.
 
